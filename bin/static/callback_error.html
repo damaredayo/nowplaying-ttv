@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Callback Error</title>
+</head>
+<body>
+    <pre>
+        <div id="message">
+            An error occurred during callback. Check the terminal for more information. You will be redirected to the callback URL in <span id="countdown"></span> seconds, alternatively click here: <a href="{{ .RedirectURL }}">{{ .RedirectURL }}</a>
+        </div>
+    </pre>
+
+    <script>
+        let countdown = document.getElementById('countdown');
+        let seconds = 5;
+
+        function updateCountdown() {
+            countdown.textContent = seconds;
+            if (seconds > 0) {
+                seconds--;
+                setTimeout(updateCountdown, 1000);
+            } else {
+                window.location.href = '{{ .RedirectURL }}';
+            }
+        }
+        updateCountdown();
+    </script>
+</body>
+</html>

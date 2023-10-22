@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>nowplaying-ttv Dashboard</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <link rel="stylesheet" type="text/css" href="css/styles.css">
+</head>
+<body>
+
+  <div class="modal fade" id="error_modal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header" id="error_modal_header">
+          <h5 class="modal-title">An Error has occured</h5>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p id="error_modal_text"></p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="error_modal_close" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+    <div class="row flex-nowrap">
+        <div class="col-auto col-md-3 col-xl-2 px-sm-2 px-0 bg-dark">
+            <div class="d-flex flex-column align-items-center align-items-sm-start px-3 pt-2 text-white min-vh-100">
+                <a href="/" class="d-flex align-items-center pb-3 mb-md-0 me-md-auto text-white text-decoration-none">
+                    <span class="fs-5 d-none d-sm-inline">nowplaying-ttv</span>
+                </a>
+                <ul class="nav nav-pills flex-column mb-sm-auto mb-0 align-items-center align-items-sm-start" id="menu">
+                    <li class="nav-item">
+                        <a href="/" class="nav-link align-middle px-0">
+                            <i class="fs-4 bi-house"></i> <span class="ms-1 d-none d-sm-inline">Dashboard</span>
+                        </a>
+                        <a href="#" class="nav-link align-middle px-0">
+                          <i class="fs-4 bi-gear"></i> <span class="ms-1 d-none d-sm-inline">Settings</span>
+                      </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main content -->
+
+        <div class="col py-3">
+          <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="topbar p-3">
+              Settings
+            </div>
+            <div class="p-4">
+                <div class="form-group">
+                    <label for="twitch_client_id">Twitch Client ID</label>
+                    <input type="text" class="form-control" id="twitch_client_id" name="twitch_client_id">
+                </div>
+                <div class="form-group">
+                    <label for="twitch_client_secret">Twitch Client Secret</label>
+                    <input type="password" class="form-control" id="twitch_client_secret" name="twitch_client_secret">
+                </div>
+                <div class="form-group">
+                    <label for="twitch_username">Twitch Username</label>
+                    <input type="text" class="form-control" id="twitch_username" name="twitch_username">
+                </div>
+    
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="soundcloud_enabled" name="soundcloud_enabled">
+                    <label class="form-check-label" for="soundcloud_enabled">
+                        SoundCloud Enabled
+                    </label>
+                </div>
+    
+                <div class="form-group">
+                    <label for="soundcloud_oauth">SoundCloud OAuth</label>
+                    <input type="password" class="form-control" id="soundcloud_oauth" name="soundcloud_oauth">
+                </div>
+    
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="spotify_enabled" name="spotify_enabled">
+                    <label class="form-check-label" for="spotify_enabled">
+                        Spotify Enabled
+                    </label>
+                </div>
+    
+                <div class="form-group">
+                    <label for="spotify_client_id">Spotify Client ID</label>
+                    <input type="text" class="form-control" id="spotify_client_id" name="spotify_client_id">
+                </div>
+                <div class="form-group">
+                    <label for="spotify_client_secret">Spotify Client Secret</label>
+                    <input type="password" class="form-control" id="spotify_client_secret" name="spotify_client_secret">
+                </div>
+    
+                
+                <button type="submit" id="save_settings" class="btn btn-primary">Submit</button>
+                <button id="save_settings" class="btn btn-primary">Save Settings to File</button>
+                <div id="submit-message"></div>
+            </div>
+          </main>
+        </div>
+    </div>
+</div>
+
+  <script src="js/settings.js"></script>
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.1/dist/umd/popper.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

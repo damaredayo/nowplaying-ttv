@@ -1,0 +1,6 @@
+body {
+    color: #ffffff; /* Text color */
+}
+.modal-backdrop {
+    opacity: 0.7 !important;
+}

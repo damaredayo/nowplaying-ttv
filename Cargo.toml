@@ -1,0 +1,37 @@
+[package]
+name = "nowplaying-ttv"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+twitch-irc = "5.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.11", features = ["json"] }
+hyper = { version = "0.14", features = ["full"] }
+url = "2.3"
+open = "4"
+colored = "2.0"
+base64 = "0.21"
+toml = "0.7"
+self-meter = "0.6"
+sysinfo = "0.28"
+
+[target.'cfg(windows)'.dependencies]
+ansi_term = "0.12"
+
+[[bin]]
+name = "nowplaying-ttv"
+path = "bin/main.rs"
+
+[[bin]]
+name = "nowplaying-ttv-web"
+path = "web/main.rs"
+
+[lib]
+name = "nowplaying_ttv_lib"
+path = "lib/lib.rs"
