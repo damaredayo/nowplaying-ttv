@@ -1,6 +1,6 @@
 async function getSettings() {
     try {
-        const response = await fetch("http://127.0.0.1:3000/config", {
+        const response = await fetch("http://127.0.0.1:{{ .PORT }}/config", {
             method: "GET",
             headers: {
                 "Content-Type": "application/json"
@@ -19,7 +19,7 @@ async function getSettings() {
 }
 
 async function saveSettings(settings) {
-    await fetch("http://127.0.0.1:3000/config", {
+    await fetch("http://127.0.0.1:{{ .PORT }}/config", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
@@ -29,17 +29,13 @@ async function saveSettings(settings) {
 }
 
 async function saveToFile() {
-    await fetch("http://127.0.0.1:3000/saveconfig", {
+    await fetch("http://127.0.0.1:{{ .PORT }}/saveconfig", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
     });
 }
-
-document.querySelector("#save_settings").addEventListener("click", async function() {
-    await saveConfig("http://127.0.0.1:3000/saveconfig");
-});
 
 function errorModal(message) {
     let modal = new bootstrap.Modal(document.getElementById("error_modal"));
@@ -153,6 +149,10 @@ document.addEventListener("DOMContentLoaded", async function() {
             return;
         }
         updateSubmitMessage("Settings saved successfully", "text-success");
+    });
+
+    document.querySelector("#save_settings").addEventListener("click", async function() {
+        await saveSettings(settings);
     });
 
     document.querySelector("#save_to_file").addEventListener("click", async function() {

@@ -10,7 +10,22 @@ use nowplaying_ttv_lib::{
     soundcloud, spotify, twitch, Config, ServerStatus,
 };
 
+use clap::Parser;
+
 mod api;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[clap(short, long)]
+    web_dashboard: bool,
+    #[clap(short, long)]
+    port: Option<u16>,
+    #[clap(short, long)]
+    port_internal: Option<u16>,
+    #[clap(short, long)]
+    config: Option<String>,
+}
 
 #[tokio::main]
 async fn main() {
@@ -29,7 +44,9 @@ async fn main() {
         Err(_) => Config::from_env(None),
     };
 
-    if config.web_dashboard_enabled {
+    let args = Args::parse();
+
+    if config.web_dashboard_enabled || args.web_dashboard {
         tracing::info!("Starting web dashboard");
         let exec_path = match get_web_executable_path() {
             Ok(path) => path,
@@ -91,6 +108,7 @@ async fn main() {
             callback_completed.clone(),
             config.clone(),
             status.clone(),
+            args.port_internal,
         )
         .await,
     );

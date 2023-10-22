@@ -87,7 +87,7 @@ services:
     container_name: nowplaying-ttv
     restart: unless-stopped
     ports:
-      - 8080:8080
+      - 9090:9090
     volumes:
       - /path/to/config.json:/root/.config/nowplaying-ttv/config.json
     environment:
@@ -96,6 +96,10 @@ services:
       - TWITCH_USERNAME=dhopcs
       - SOUNDCLOUD_ENABLED=true
       - SOUNDCLOUD_OAUTH=OAuth 2-123456-123456789-xxxxxxxxxxxxxx
+      - PORT_INTERNAL=8080
+    args:
+      - PORT=9090
+      - PORT_INTERNAL=8080
 ```
 
 ## Building

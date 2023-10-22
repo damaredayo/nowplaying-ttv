@@ -32,6 +32,7 @@ pub struct Api {
     pub config: Arc<Mutex<Config>>,
     pub status: Arc<(Mutex<ServerStatus>, Notify)>,
     pub system_status: Arc<Mutex<Status>>,
+    port: u16,
 }
 
 pub async fn hyper_server(api: Arc<Api>) -> NPResult<()> {
@@ -43,7 +44,7 @@ pub async fn hyper_server(api: Arc<Api>) -> NPResult<()> {
         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
     }
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let addr = SocketAddr::from(([127, 0, 0, 1], api.port));
     *api.status.0.lock().await = ServerStatus::Running;
 
     *api.callback_response.lock().await = CallbackResponse::default();
@@ -111,6 +112,7 @@ impl Api {
         callback_completed: Arc<Mutex<Arc<Notify>>>,
         config: Arc<Mutex<Config>>,
         status: Arc<(Mutex<ServerStatus>, Notify)>,
+        port: Option<u16>,
     ) -> Self {
         let mut system = sysinfo::System::new_with_specifics(RefreshKind::new().with_memory());
         system.refresh_memory();
@@ -147,6 +149,7 @@ impl Api {
             config,
             status,
             system_status,
+            port: port.unwrap_or(3000),
         }
     }
 
@@ -245,6 +248,14 @@ impl Api {
                     .status(200)
                     .header("Content-Type", "application/json")
                     .body(Body::from(serde_json::to_string(&status).unwrap()))
+                    .expect("Failed to build response");
+                response
+            }
+
+            ("/status", &hyper::Method::OPTIONS) => {
+                let response = Response::builder()
+                    .status(200)
+                    .body(Body::empty())
                     .expect("Failed to build response");
                 response
             }
