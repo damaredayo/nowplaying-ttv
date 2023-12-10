@@ -21,7 +21,6 @@ pub struct TwitchClient {
     client: Option<Arc<TwitchIRCClient<SecureTCPTransport, StaticLoginCredentials>>>,
     soundcloud: Option<Arc<soundcloud::SoundcloudClient>>,
     spotify: Option<Arc<Mutex<spotify::SpotifyClient>>>,
-    access_token: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -88,23 +87,102 @@ impl TwitchClient {
         config: Arc<Mutex<Config>>,
         soundcloud: Option<Arc<soundcloud::SoundcloudClient>>,
         spotify: Option<Arc<Mutex<spotify::SpotifyClient>>>,
-        access_token: String,
     ) -> Self {
         Self {
             config,
             client: None,
             soundcloud,
             spotify,
-            access_token,
+        }
+    }
+
+    pub async fn refresh_oauth(&self) -> NPResult<Option<AuthResponse>> {
+        if self.test_token().await.is_ok() {
+            return Ok(None);
+        }
+
+        let config = self.config.lock().await;
+
+        let client_id = &config.twitch_client_id;
+        let client_secret = &config.twitch_client_secret;
+        let grant_type = String::from("refresh_token");
+        let refresh_token = match config.twitch_oauth_refresh.clone() {
+            Some(token) => token,
+            None => {
+                return Err(Error::new(
+                    String::from("No refresh token"),
+                    ErrorKind::TwitchError,
+                )
+                .into())
+            }
+        };
+
+        let client = reqwest::Client::new();
+
+        let mut form_data = HashMap::new();
+        form_data.insert("client_id", client_id);
+        form_data.insert("client_secret", client_secret);
+        form_data.insert("grant_type", &grant_type);
+        form_data.insert("refresh_token", &refresh_token);
+
+        let response = client
+            .post(TOKEN_URL)
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .form(&form_data)
+            .send()
+            .await?;
+
+        match response.status() {
+            StatusCode::OK => {
+                let auth_response = response.json::<AuthResponse>().await?;
+
+                tracing::info!("Refreshed Twitch OAuth");
+
+                Ok(Some(auth_response))
+            }
+            _ => Err(Error::new(
+                format!("expected status 200, got {}", response.status()),
+                ErrorKind::HttpError,
+            )
+            .into()),
+        }
+    }
+
+    pub async fn test_token(&self) -> NPResult<()> {
+        let config = self.config.lock().await;
+
+        let client = reqwest::Client::new();
+
+        let response = client
+            .get("https://id.twitch.tv/oauth2/validate")
+            .header(
+                "Authorization",
+                format!("OAuth {}", match config.twitch_oauth.clone() {
+                    Some(oauth) => oauth,
+                    None => return Err(Error::new(String::from("No OAuth token"), ErrorKind::TwitchError).into()),
+                }),
+            )
+            .send()
+            .await?;
+
+        match response.status() {
+            StatusCode::OK => Ok(()),
+            _ => Err(Error::new(
+                format!("expected status 200, got {}", response.status()),
+                ErrorKind::HttpError,
+            )
+            .into()),
         }
     }
 
     pub async fn listener(&mut self, status: Arc<(Mutex<ServerStatus>, Notify)>) -> NPResult<()> {
         tracing::info!("Connecting to Twitch");
 
+        let conf = self.config.lock().await.clone();
+
         let credentials = StaticLoginCredentials::new(
-            self.config.lock().await.twitch_username.clone(),
-            Some(self.access_token.clone()),
+            conf.twitch_username.clone(),
+            conf.twitch_oauth.clone(),
         );
 
         let config = ClientConfig::new_simple(credentials);
@@ -113,14 +191,15 @@ impl TwitchClient {
             TwitchIRCClient::<SecureTCPTransport, StaticLoginCredentials>::new(config);
 
         client
-            .join(self.config.lock().await.twitch_username.clone())
+            .join(conf.twitch_username.clone())
             .expect("Failed to join channel");
+
 
         self.client = Some(Arc::new(client));
 
         tracing::info!(
             "Connected to Twitch IRC, joined channel {}",
-            self.config.lock().await.twitch_username.clone()
+            conf.twitch_username.clone()
         );
 
         let self_arc = Arc::new(self.clone());

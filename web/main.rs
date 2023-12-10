@@ -79,7 +79,7 @@ impl Api {
             ("/js/index.js", &hyper::Method::GET) => self.file_serve(req).await,
             ("/js/settings.js", &hyper::Method::GET) => self.file_serve(req).await,
             ("/css/styles.css", &hyper::Method::GET) => self.file_serve(req).await,
-    
+
             _ => self.not_found().await,
         } {
             Ok(response) => Ok(response),
@@ -99,26 +99,29 @@ impl Api {
             Err(e) => Err(format!("Failed to build response: {}", e).into()),
         }
     }
-    
-    pub async fn file_serve(&self, req: Request<Body>) -> Result<Response<Body>, Box<dyn std::error::Error>> {
+
+    pub async fn file_serve(
+        &self,
+        req: Request<Body>,
+    ) -> Result<Response<Body>, Box<dyn std::error::Error>> {
         let path = req.uri().path();
-    
+
         let response = match path {
             "/js/index.js" => {
                 let js = files::INDEX_JS.replace("{{ .PORT }}", &self.internal_port.to_string());
 
                 Response::builder()
-                .status(200)
-                .header("Content-Type", "text/javascript")
-                .body(Body::from(js))?
+                    .status(200)
+                    .header("Content-Type", "text/javascript")
+                    .body(Body::from(js))?
             }
             "/js/settings.js" => {
                 let js = files::SETTINGS_JS.replace("{{ .PORT }}", &self.internal_port.to_string());
 
                 Response::builder()
-                .status(200)
-                .header("Content-Type", "text/javascript")
-                .body(Body::from(js))?
+                    .status(200)
+                    .header("Content-Type", "text/javascript")
+                    .body(Body::from(js))?
             }
             "/css/styles.css" => Response::builder()
                 .status(200)
@@ -126,26 +129,31 @@ impl Api {
                 .body(Body::from(files::STYLES_CSS))?,
             _ => self.not_found().await?,
         };
-    
+
         Ok(response)
     }
-    
-    pub async fn index(&self, _req: Request<Body>) -> Result<Response<Body>, Box<dyn std::error::Error>> {
+
+    pub async fn index(
+        &self,
+        _req: Request<Body>,
+    ) -> Result<Response<Body>, Box<dyn std::error::Error>> {
         let response = Response::builder()
             .status(200)
             .header("Content-Type", "text/html")
             .body(Body::from(files::INDEX_HTML))?;
-    
+
         Ok(response)
     }
-    
-    pub async fn settings(&self, _req: Request<Body>) -> Result<Response<Body>, Box<dyn std::error::Error>> {
+
+    pub async fn settings(
+        &self,
+        _req: Request<Body>,
+    ) -> Result<Response<Body>, Box<dyn std::error::Error>> {
         let response = Response::builder()
             .status(200)
             .header("Content-Type", "text/html")
             .body(Body::from(files::SETTINGS_HTML))?;
-    
+
         Ok(response)
     }
-    
 }

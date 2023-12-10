@@ -27,7 +27,7 @@ pub struct Status {
 type NPResult<T> = std::result::Result<T, errors::Error>;
 
 pub struct Api {
-    pub callback_response: Arc<Mutex<CallbackResponse>>,
+    pub callback_response: Option<Arc<Mutex<CallbackResponse>>>,
     pub callback_completed: Arc<Mutex<Arc<Notify>>>,
     pub config: Arc<Mutex<Config>>,
     pub status: Arc<(Mutex<ServerStatus>, Notify)>,
@@ -47,7 +47,12 @@ pub async fn hyper_server(api: Arc<Api>) -> NPResult<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], api.port));
     *api.status.0.lock().await = ServerStatus::Running;
 
-    *api.callback_response.lock().await = CallbackResponse::default();
+    match &api.callback_response {
+        Some(cr) => {
+            *cr.lock().await = CallbackResponse::default();
+        }
+        None => {}
+    }
 
     let api_ref = api.clone();
     let make_svc = make_service_fn(move |_| {
@@ -108,7 +113,7 @@ pub async fn hyper_server(api: Arc<Api>) -> NPResult<()> {
 
 impl Api {
     pub async fn new(
-        callback_response: Arc<Mutex<CallbackResponse>>,
+        callback_response: Option<Arc<Mutex<CallbackResponse>>>,
         callback_completed: Arc<Mutex<Arc<Notify>>>,
         config: Arc<Mutex<Config>>,
         status: Arc<(Mutex<ServerStatus>, Notify)>,
@@ -280,23 +285,31 @@ impl Api {
             "Content-Type".parse().unwrap(),
         );
 
-        let mut cr = self.callback_response.lock().await;
+        match self.callback_response {
+            Some(ref cr) => {
+                let mut cr = cr.lock().await;
 
-        if cr.delivered && !cr.ack {
-            tracing::info!("All auth codes received, starting bot.");
-            self.callback_completed.lock().await.notify_waiters();
-            cr.ack = true;
+                if cr.delivered && !cr.ack {
+                    tracing::info!("All auth codes received, starting bot.");
+                    self.callback_completed.lock().await.notify_waiters();
+                    cr.ack = true;
+                }
+
+                Ok(resp)
+            }
+            None => {
+                panic!("Callback response is None");
+            }
         }
-
-        Ok(resp)
     }
 
     async fn twitch_callback(&self, req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
-        if self.callback_response.lock().await.delivered {
-            return Ok(Response::new(Body::from(
-                "You have already authenticated. You can close this tab now.",
-            )));
-        }
+        let cr = match self.callback_response {
+            Some(ref cr) => cr,
+            None => {
+                panic!("Callback response is None");
+            }
+        };
 
         let query_params: Vec<_> = req.uri().query().unwrap_or("").split('&').collect();
         let mut code = None;
@@ -350,20 +363,16 @@ impl Api {
                 }
             };
 
-            self.callback_response
-                .lock()
-                .await
-                .twitch_auth
-                .replace(twitch_auth);
+            cr.lock().await.twitch_auth.replace(twitch_auth);
 
             if self.config.lock().await.spotify_enabled {
-                let mut cr = self.callback_response.lock().await;
+                let mut cr = cr.lock().await;
                 if cr.spotify_auth.is_some() {
                     cr.delivered = true;
                     self.callback_completed.lock().await.notify_waiters();
                 }
             } else {
-                self.callback_response.lock().await.delivered = true;
+                cr.lock().await.delivered = true;
             }
 
             let response =
@@ -382,7 +391,14 @@ impl Api {
     }
 
     async fn spotify_callback(&self, req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
-        if self.callback_response.lock().await.delivered {
+        let cr = match self.callback_response {
+            Some(ref cr) => cr,
+            None => {
+                panic!("Callback response is None");
+            }
+        };
+
+        if cr.lock().await.delivered {
             return Ok(Response::new(Body::from(
                 "You have already authenticated. You can close this tab now.",
             )));
@@ -445,13 +461,9 @@ impl Api {
                 }
             };
 
-            self.callback_response
-                .lock()
-                .await
-                .spotify_auth
-                .replace(spotify_auth);
+            cr.lock().await.spotify_auth.replace(spotify_auth);
 
-            let mut cr = self.callback_response.lock().await;
+            let mut cr = cr.lock().await;
             if cr.twitch_auth.is_some() {
                 cr.delivered = true;
                 self.callback_completed.lock().await.notify_waiters();

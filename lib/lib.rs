@@ -24,9 +24,15 @@ pub struct Config {
     pub spotify_client_id: Option<String>,
     pub spotify_client_secret: Option<String>,
 
+    pub spotify_oauth: Option<String>,
+    pub spotify_oauth_refresh: Option<String>,
+
     pub twitch_client_id: String,
     pub twitch_client_secret: String,
     pub twitch_username: String,
+
+    pub twitch_oauth: Option<String>,
+    pub twitch_oauth_refresh: Option<String>,
 
     pub web_dashboard_enabled: bool,
 }
@@ -96,6 +102,8 @@ impl Config {
                 let spotify_enabled = parse_string_to_bool(std::env::var("SPOTIFY_ENABLED").ok());
                 let mut spotify_client_id = None;
                 let mut spotify_client_secret = None;
+                let mut spotify_oauth = None;
+                let mut spotify_oauth_refresh = None;
                 if spotify_enabled {
                     spotify_client_id = Some(
                         std::env::var("SPOTIFY_CLIENT_ID")
@@ -105,6 +113,8 @@ impl Config {
                         std::env::var("SPOTIFY_CLIENT_SECRET")
                             .expect("SPOTIFY_ENABLED is true but SPOTIFY_CLIENT_SECRET is not set"),
                     );
+                    spotify_oauth = std::env::var("SPOTIFY_OAUTH").ok();
+                    spotify_oauth_refresh = std::env::var("SPOTIFY_OAUTH_REFRESH").ok();
                 }
 
                 let c = Config {
@@ -117,12 +127,17 @@ impl Config {
                     spotify_client_id,
                     spotify_client_secret,
 
+                    spotify_oauth,
+                    spotify_oauth_refresh,
+
                     twitch_client_id: std::env::var("TWITCH_CLIENT_ID")
                         .expect("TWITCH_CLIENT_ID is not set"),
                     twitch_client_secret: std::env::var("TWITCH_CLIENT_SECRET")
                         .expect("TWITCH_CLIENT_SECRET is not set"),
                     twitch_username: std::env::var("TWITCH_USERNAME")
                         .expect("TWITCH_USERNAME is not set"),
+                    twitch_oauth: std::env::var("TWITCH_OAUTH").ok(),
+                    twitch_oauth_refresh: std::env::var("TWITCH_OAUTH_REFRESH").ok(),
                     web_dashboard_enabled: parse_string_to_bool(
                         std::env::var("WEB_DASHBOARD_ENABLED").ok(),
                     ),
@@ -168,7 +183,20 @@ impl Config {
                 );
             }
         };
-        let data: Self = serde_json::from_reader(&mut file)?;
+        let data: Self = match serde_json::from_reader(&mut file) {
+            Ok(d) => d,
+            Err(e) => {
+                tracing::error!(
+                    "A non fatal error occured while deserializing the file. (The JSON doesn't match) {}",
+                    e
+                );
+                return Err(format!(
+                    "A non fatal error occured while deserializing the file. (The JSON doesn't match) {}",
+                    e
+                )
+                .into());
+            }
+        };
 
         Ok(data)
     }
@@ -191,7 +219,7 @@ impl Config {
             }
         };
 
-        match File::create(location) {
+        match File::create(location.clone()) {
             Ok(mut f) => {
                 if let Err(e) = f.write_all(conf_json.as_bytes()) {
                     tracing::error!(
@@ -212,6 +240,8 @@ impl Config {
                 );
             }
         };
+
+        tracing::info!("Saved config to {}", location);
 
         Ok(())
     }

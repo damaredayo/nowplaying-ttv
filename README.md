@@ -96,10 +96,10 @@ services:
       - TWITCH_USERNAME=dhopcs
       - SOUNDCLOUD_ENABLED=true
       - SOUNDCLOUD_OAUTH=OAuth 2-123456-123456789-xxxxxxxxxxxxxx
-      - PORT_INTERNAL=8080
+      - INTERNAL_PORT=8080
     args:
       - PORT=9090
-      - PORT_INTERNAL=8080
+      - INTERNAL_PORT=8080
 ```
 
 ## Building

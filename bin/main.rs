@@ -22,7 +22,7 @@ struct Args {
     #[clap(short, long)]
     port: Option<u16>,
     #[clap(short, long)]
-    port_internal: Option<u16>,
+    internal_port: Option<u16>,
     #[clap(short, long)]
     config: Option<String>,
 }
@@ -38,7 +38,7 @@ async fn main() {
 
     tracing::info!("Starting nowplaying-ttv");
 
-    tracing::debug!("Loading config");
+    tracing::info!("Loading config");
     let config = match Config::from_json() {
         Ok(c) => Config::from_env(Some(c)),
         Err(_) => Config::from_env(None),
@@ -95,26 +95,65 @@ async fn main() {
         });
     }
 
-    let callback_response = Arc::new(Mutex::new(CallbackResponse::default()));
-    let callback_completed = Arc::new(Mutex::new(Arc::new(Notify::new())));
-
     let config = Arc::new(Mutex::new(config));
+
+    let twitch = twitch::TwitchClient::new(config.clone(), None, None);
+
+    tracing::info!("Checking Twitch OAuth");
+
+    let reauth = match twitch.test_token().await {
+        Ok(_) => false,
+        Err(_) => {
+            tracing::info!("Refreshing Twitch OAuth");
+            match twitch.refresh_oauth().await {
+                Ok(oauth) => {
+                    if let Some(oauth) = oauth {
+                        config.lock().await.twitch_oauth = Some(oauth.access_token.clone());
+                        config.lock().await.twitch_oauth_refresh = Some(oauth.refresh_token.clone());
+                    }
+                    false
+                }
+                Err(e) => {
+                    tracing::info!(
+                        "Failed to refresh Twitch OAuth, please reauthenticate. Error: {}",
+                        e
+                    );
+                    true
+                }
+            }
+        },
+    };
 
     let status = Arc::new((Mutex::new(ServerStatus::Stopped), Notify::new()));
 
-    let api_instance = Arc::new(
-        api::Api::new(
-            callback_response.clone(),
-            callback_completed.clone(),
-            config.clone(),
-            status.clone(),
-            args.port_internal,
-        )
-        .await,
-    );
+    let callback_completed = Arc::new(Mutex::new(Arc::new(Notify::new())));
+    let mut callback_response = None;
+
+    let mut api_instance = None;
+
+    if reauth {
+        callback_response = Some(Arc::new(Mutex::new(CallbackResponse::default())));
+
+        api_instance = Some(Arc::new(
+            api::Api::new(
+                callback_response.clone(),
+                callback_completed.clone(),
+                config.clone(),
+                status.clone(),
+                args.internal_port,
+            )
+            .await,
+        ));
+    } else {
+        tracing::info!("All auth codes received, starting bot.");
+        *status.0.lock().await = ServerStatus::Running;
+        callback_completed.lock().await.notify_one();
+    }
 
     loop {
-        tokio::spawn(api::hyper_server(api_instance.clone()));
+        if let Some(api_instance) = api_instance.clone() {
+            tokio::spawn(api::hyper_server(api_instance));
+        }
 
         let worker = twitch_listener_worker(
             config.clone(),
@@ -178,7 +217,7 @@ fn get_web_executable_path() -> NPResult<String> {
 
 async fn twitch_listener_worker(
     config: Arc<Mutex<Config>>,
-    callback_response: Arc<Mutex<CallbackResponse>>,
+    callback_response: Option<Arc<Mutex<CallbackResponse>>>,
     callback_completed: Arc<Mutex<Arc<Notify>>>,
     status: Arc<(Mutex<ServerStatus>, Notify)>,
 ) -> NPResult<()> {
@@ -199,47 +238,52 @@ async fn twitch_listener_worker(
         )
     }
 
-    let mut spot = None;
-
-    if config.lock().await.spotify_enabled {
-        if let Some(spotify_auth) = callback_response.lock().await.spotify_auth.clone() {
-            let client_id = config
-                .lock()
-                .await
-                .spotify_client_id
-                .clone()
-                .expect("SPOTIFY_CLIENT_ID is not set");
-
-            let secret = config
-                .lock()
-                .await
-                .spotify_client_secret
-                .clone()
-                .expect("SPOTIFY_CLIENT_SECRET is not set");
-
-            spot = Some(Arc::new(Mutex::new(spotify::SpotifyClient::new(
-                client_id,
-                secret,
-                spotify_auth.access_token,
-                spotify_auth.refresh_token,
-            ))));
-        }
-    };
-
     let sc = soundcloud::SoundcloudClient::new(config.lock().await.soundcloud_oauth.clone())
         .map(|client| Arc::new(client));
 
-    let twitch_auth = match callback_response.lock().await.twitch_auth.clone() {
-        Some(auth) => auth,
-        None => {
-            return Err(Error::new(
-                String::from("Twitch auth not set"),
-                ErrorKind::TwitchError,
-            ))
-        }
-    };
+    let mut spot = None;
 
-    let mut twitch = twitch::TwitchClient::new(config.clone(), sc, spot, twitch_auth.access_token);
+    if let Some(cr) = callback_response.clone() {
+        if config.lock().await.spotify_enabled {
+            if let Some(spotify_auth) = cr.lock().await.spotify_auth.clone() {
+                let client_id = config
+                    .lock()
+                    .await
+                    .spotify_client_id
+                    .clone()
+                    .expect("SPOTIFY_CLIENT_ID is not set");
+
+                let secret = config
+                    .lock()
+                    .await
+                    .spotify_client_secret
+                    .clone()
+                    .expect("SPOTIFY_CLIENT_SECRET is not set");
+
+                config.lock().await.spotify_oauth = Some(spotify_auth.access_token.clone());
+                config.lock().await.spotify_oauth_refresh =
+                    Some(spotify_auth.refresh_token.clone());
+
+                spot = Some(Arc::new(Mutex::new(spotify::SpotifyClient::new(
+                    client_id,
+                    secret,
+                    spotify_auth.access_token,
+                    spotify_auth.refresh_token,
+                ))));
+            }
+        };
+
+        if let Some(twitch_auth) = cr.lock().await.twitch_auth.clone() {
+            config.lock().await.twitch_oauth = Some(twitch_auth.access_token.clone());
+            config.lock().await.twitch_oauth_refresh = Some(twitch_auth.refresh_token.clone());
+        }
+    }
+
+    let mut twitch = twitch::TwitchClient::new(config.clone(), sc, spot);
+
+    if let Err(_) = config.lock().await.save_to_file() {
+        tracing::error!("Failed to save config.");
+    }
 
     tokio::select! {
         listener = twitch.listener(status.clone()) => {

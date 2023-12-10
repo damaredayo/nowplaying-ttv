@@ -3,8 +3,8 @@ WORKDIR /usr/src/nowplaying-ttv
 
 ARG PORT
 ENV PORT=$PORT
-ARG PORT_INTERNAL
-ENV PORT_INTERNAL=$PORT_INTERNAL
+ARG INTERNAL_PORT
+ENV INTERNAL_PORT=$INTERNAL_PORT
 
 FROM chef AS prepare
 COPY . .
@@ -17,7 +17,7 @@ COPY . .
 RUN cargo build --release
 
 EXPOSE $PORT
-EXPOSE $PORT_INTERNAL
+EXPOSE $INTERNAL_PORT
 
 FROM rust AS runtime
 COPY --from=build /usr/src/nowplaying-ttv/target/release/nowplaying-ttv .
