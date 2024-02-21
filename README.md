@@ -4,8 +4,6 @@
 
 nowplaying-ttv aims to be a simple, configurable and as much possible easy to use application for displaying the currently playing song for your livestream. It is written in Rust.
 
-## !! THE PROJECT IS IN REALLY EARLY STAGES OF DEVELOPMENT AND IS VERY BUGGY !! 
-
 Below you can find all of the currently supported features and the ones that are planned to be implemented. If you have any suggestions or ideas, please feel free to open an issue or a pull request. I would love to see them! :)
 
 ## Features / Todolist
